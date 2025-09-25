@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>Randomize Names (Dynamic Count)</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:24px; display:flex; justify-content:center; }
+		.card { width:100%; max-width:760px; background:#111827; border:1px solid #1f2937; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
+		h1 { font-size:22px; margin:0 0 12px 0; color:#f8fafc; }
+		.section { margin-top:12px; }
+		.row { display:flex; gap:10px; align-items:center; }
+		input[type="number"], input[type="text"] { background:#0b1220; color:#e5e7eb; border:1px solid #243248; border-radius:8px; padding:10px 12px; outline:none; transition:border-color .15s, box-shadow .15s; }
+		input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.25); }
+		button { appearance:none; border:none; cursor:pointer; background:linear-gradient(135deg,#2563eb,#06b6d4); color:#fff; padding:10px 16px; border-radius:10px; font-weight:600; transition:transform .06s, opacity .2s; }
+		button.secondary { background:#334155; }
+		button.ghost { background:#1f2937; }
+		button:disabled { opacity:.5; cursor:not-allowed; }
+		button:active:not(:disabled) { transform:translateY(1px); }
+		.grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+		.field { display:flex; gap:8px; align-items:center; }
+		.field label { width:64px; font-size:12px; color:#94a3b8; }
+		.actions { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+		.error { color:#fca5a5; font-size:13px; min-height:18px; margin-top:6px; }
+		.result-card { margin-top:16px; background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:16px; }
+		ol { margin:0; padding-left:20px; display:grid; gap:6px; }
+		.badge { padding:4px 8px; background:#1e293b; border-radius:999px; font-size:12px; }
+		.spin { width:48px; height:48px; border-radius:50%; border:6px solid #1f2937; border-top-color:#3b82f6; animation:spin .9s linear infinite; display:none; }
+		@keyframes spin { to { transform:rotate(360deg); } }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>Randomize Names</h1>
+
+		<!-- Step 1: choose how many -->
+		<div id="step1" class="section">
+			<div class="row">
+				<label for="countInput" style="color:#94a3b8; font-size:12px; min-width:160px;">How many participants?</label>
+				<input id="countInput" type="number" min="1" max="100" value="10" />
+				<button id="createBtn" type="button">Create Inputs</button>
+				<span class="badge" id="limitNote">1–100</span>
+			</div>
+			<div class="error" id="errStep1"></div>
+		</div>
+
+		<!-- Step 2: fill names + randomize -->
+		<div id="step2" class="section" style="display:none;">
+			<div class="row" style="justify-content:space-between;">
+				<strong id="namesTitle">Enter names</strong>
+				<button id="backBtn" class="ghost" type="button">Back</button>
+			</div>
+
+			<div id="inputsGrid" class="grid"></div>
+
+			<div class="actions">
+				<button id="randomizeBtn" type="button">Randomize</button>
+				<button id="shuffleAgainBtn" type="button" style="display:none;">Shuffle Again</button>
+				<button id="resetBtn" type="button" class="secondary">Reset</button>
+				<div class="spin" id="spinner"></div>
+			</div>
+			<div class="error" id="errStep2"></div>
+
+			<div id="resultCard" class="result-card" style="display:none;">
+				<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+					<strong>Random Order</strong>
+					<button id="copyBtn" type="button" style="background:#16a34a;">Copy</button>
+				</div>
+				<ol id="results"></ol>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const step1 = document.getElementById("step1");
+		const step2 = document.getElementById("step2");
+		const countInput = document.getElementById("countInput");
+		const createBtn = document.getElementById("createBtn");
+		const errStep1 = document.getElementById("errStep1");
+
+		const inputsGrid = document.getElementById("inputsGrid");
+		const namesTitle = document.getElementById("namesTitle");
+		const randomizeBtn = document.getElementById("randomizeBtn");
+		const shuffleAgainBtn = document.getElementById("shuffleAgainBtn");
+		const resetBtn = document.getElementById("resetBtn");
+		const backBtn = document.getElementById("backBtn");
+		const spinner = document.getElementById("spinner");
+		const errStep2 = document.getElementById("errStep2");
+		const resultCard = document.getElementById("resultCard");
+		const results = document.getElementById("results");
+		const copyBtn = document.getElementById("copyBtn");
+
+		let inputIds = [];
+		let lastNames = [];
+
+		function setLoading(isLoading) {
+			randomizeBtn.disabled = isLoading;
+			shuffleAgainBtn.disabled = isLoading;
+			backBtn.disabled = isLoading;
+			resetBtn.disabled = isLoading;
+			spinner.style.display = isLoading ? "inline-block" : "none";
+		}
+
+		function createInputs(count) {
+			inputIds = Array.from({ length: count }, (_, i) => "n" + (i + 1));
+			inputsGrid.innerHTML = "";
+			for (let i = 1; i <= count; i++) {
+				const wrap = document.createElement("div");
+				wrap.className = "field";
+				wrap.innerHTML = `
+					<label for="n${i}">Name ${i}</label>
+					<input id="n${i}" type="text" placeholder="Enter name" />
+				`;
+				inputsGrid.appendChild(wrap);
+			}
+			namesTitle.textContent = "Enter " + count + " name" + (count > 1 ? "s" : "");
+		}
+
+		function getNames() {
+			return inputIds.map(id => document.getElementById(id).value.trim());
+		}
+
+		function validateNames(arr) {
+			if (arr.length === 0) return "No inputs created.";
+			const empty = arr.filter(n => !n).length;
+			if (empty) return "Please fill all name fields.";
+			return "";
+		}
+
+		function shuffle(array) {
+			const a = array.slice();
+			for (let i = a.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[a[i], a[j]] = [a[j], a[i]];
+			}
+			return a;
+		}
+
+		function renderResults(arr) {
+			results.innerHTML = "";
+			arr.forEach(n => {
+				const li = document.createElement("li");
+				li.textContent = n;
+				results.appendChild(li);
+			});
+			resultCard.style.display = "block";
+			shuffleAgainBtn.style.display = "inline-block";
+		}
+
+		createBtn.addEventListener("click", () => {
+			errStep1.textContent = "";
+			const count = parseInt(countInput.value, 10);
+			if (!Number.isInteger(count) || count < 1 || count > 100) {
+				errStep1.textContent = "Enter a number between 1 and 100.";
+				return;
+			}
+			createInputs(count);
+			resultCard.style.display = "none";
+			shuffleAgainBtn.style.display = "none";
+			errStep2.textContent = "";
+			step1.style.display = "none";
+			step2.style.display = "block";
+			document.getElementById("n1").focus();
+		});
+
+		backBtn.addEventListener("click", () => {
+			step2.style.display = "none";
+			step1.style.display = "block";
+			errStep1.textContent = "";
+		});
+
+		resetBtn.addEventListener("click", () => {
+			inputIds.forEach(id => (document.getElementById(id).value = ""));
+			errStep2.textContent = "";
+			resultCard.style.display = "none";
+			shuffleAgainBtn.style.display = "none";
+			if (inputIds.length) document.getElementById(inputIds[0]).focus();
+		});
+
+		randomizeBtn.addEventListener("click", () => {
+			errStep2.textContent = "";
+			const names = getNames();
+			const err = validateNames(names);
+			if (err) { errStep2.textContent = err; return; }
+			setLoading(true);
+			setTimeout(() => {
+				lastNames = names.slice();
+				renderResults(shuffle(names));
+				setLoading(false);
+			}, 900);
+		});
+
+		shuffleAgainBtn.addEventListener("click", () => {
+			errStep2.textContent = "";
+			const names = getNames();
+			const err = validateNames(names);
+			if (err) { errStep2.textContent = err; return; }
+			setLoading(true);
+			setTimeout(() => {
+				lastNames = names.slice();
+				renderResults(shuffle(names));
+				setLoading(false);
+			}, 600);
+		});
+
+		copyBtn.addEventListener("click", async () => {
+			const lines = Array.from(results.querySelectorAll("li")).map((li, i) => `${i + 1}. ${li.textContent}`);
+			try {
+				await navigator.clipboard.writeText(lines.join("\n"));
+				copyBtn.textContent = "Copied!";
+				setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
+			} catch {
+				copyBtn.textContent = "Failed";
+				setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
+			}
+		});
+	</script>
+</body>
+</html>
