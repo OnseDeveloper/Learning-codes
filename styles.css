@@ -1,0 +1,19 @@
+/* .parent > p{
+    color: red;
+} */
+
+/* .parent + p{
+    color: red;
+} */
+
+.parent ~ p{
+    color: red;
+}
+
+.test::first-letter{
+    color: red;
+}
+
+input[name='passward'] {
+    padding: 10px;
+}
